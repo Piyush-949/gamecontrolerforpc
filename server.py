@@ -1,9 +1,3 @@
-"""PhonePad server.
-
-Serves the controller page to a phone and turns the touch input it sends
-back over a websocket into either a virtual Xbox 360 pad (vgamepad) or
-plain keyboard/mouse events (pynput).
-"""
 
 import asyncio
 import json
