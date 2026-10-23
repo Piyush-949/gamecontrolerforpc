@@ -236,6 +236,65 @@ body.kb .k { display: block; }
 }
 #gyro.on { color: var(--accent); border-color: var(--accent); }
 
+/* driving layout: wheel on the left, pedals on the right */
+#wheel, #pedals { display: none; }
+body.wheel #ls, body.wheel #rs, body.wheel #dpad, body.wheel .trig { display: none; }
+body.wheel #wheel { display: block; }
+body.wheel #pedals { display: flex; }
+body.wheel .low { justify-content: space-around; }
+
+#wheel {
+  width: var(--s); height: var(--s);
+  flex-shrink: 0;
+  touch-action: none;
+}
+#wheel-art { width: 100%; height: 100%; }
+#wheel-art circle, #wheel-art line, #wheel-art path { fill: none; stroke: #565e6f; stroke-linecap: round; }
+#wheel.live #wheel-art circle.rim { stroke: var(--accent); }
+#wheel-art .top { stroke: var(--accent); stroke-width: 7; }
+
+#pedals { height: var(--s); gap: 8px; flex-shrink: 0; }
+.pedal {
+  width: calc(var(--s) * 0.34);
+  position: relative;
+  overflow: hidden;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  touch-action: none;
+  display: flex; align-items: flex-end; justify-content: center;
+  padding-bottom: 8px;
+  font-size: 10px; font-weight: 700; color: var(--muted);
+}
+.pedal .fill { position: absolute; left: 0; right: 0; bottom: 0; height: 0; opacity: .4; }
+#brake .fill { background: var(--bad); }
+#gas .fill { background: var(--ok); }
+.pedal span { position: relative; }
+
+#wheelmode { width: 96px; height: 32px; border-radius: 16px; font-size: 11px; color: var(--accent); border-color: var(--accent); }
+body.wheel #wheelmode { background: var(--accent); color: #0b0d11; }
+
+/* pin screen */
+#lock {
+  display: none;
+  position: fixed; inset: 0;
+  z-index: 5;
+  background: var(--bg);
+  align-items: center; justify-content: center;
+  gap: 36px;
+}
+#lock.show { display: flex; }
+#lock-info { text-align: center; width: 220px; }
+#lock-info h2 { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+#lock-info p { font-size: 12px; color: var(--muted); line-height: 1.4; }
+#pin-dots { display: flex; justify-content: center; gap: 10px; margin: 18px 0 12px; }
+#pin-dots i { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--line); }
+#pin-dots i.on { background: var(--accent); border-color: var(--accent); }
+#pin-msg { height: 16px; font-size: 12px; color: #f0777b; }
+#keys { display: grid; grid-template-columns: repeat(3, 62px); gap: 8px; }
+#keys .btn { height: 44px; border-radius: 10px; font-size: 18px; font-weight: 500; }
+#keys .btn.empty { visibility: hidden; }
+
 /* portrait = ask to rotate */
 #rotate {
   display: none;
@@ -262,6 +321,16 @@ body.kb .k { display: block; }
   Turn your phone sideways to use PhonePad
 </div>
 
+<div id="lock">
+  <div id="lock-info">
+    <h2>Enter PIN</h2>
+    <p>The 6 digit code is shown in the PhonePad window on your PC.</p>
+    <div id="pin-dots"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div id="pin-msg"></div>
+  </div>
+  <div id="keys"></div>
+</div>
+
 <div id="app">
   <div id="bar">
     <div id="name">PHONEPAD</div>
@@ -283,6 +352,16 @@ body.kb .k { display: block; }
       </div>
       <div class="low">
         <div class="stick" id="ls"><div class="knob"></div><span class="tag">hold = L3</span></div>
+        <div id="wheel">
+          <svg id="wheel-art" viewBox="0 0 100 100">
+            <circle class="rim" cx="50" cy="50" r="44" stroke-width="7"/>
+            <circle cx="50" cy="50" r="9" stroke-width="3"/>
+            <line x1="9" y1="50" x2="41" y2="50" stroke-width="5"/>
+            <line x1="59" y1="50" x2="91" y2="50" stroke-width="5"/>
+            <line x1="50" y1="59" x2="50" y2="91" stroke-width="5"/>
+            <line class="top" x1="50" y1="6" x2="50" y2="17"/>
+          </svg>
+        </div>
         <div id="dpad">
           <div class="btn d-up"    data-btn="DPAD_UP">&#9650;<span class="k">1</span></div>
           <div class="btn d-left"  data-btn="DPAD_LEFT">&#9664;<span class="k">3</span></div>
@@ -301,6 +380,7 @@ body.kb .k { display: block; }
         <div class="btn small" data-btn="START">START<span class="k">Esc</span></div>
       </div>
       <div class="btn" id="gyro">Gyro off</div>
+      <div class="btn" id="wheelmode">Drive</div>
     </section>
 
     <!-- right -->
@@ -317,6 +397,10 @@ body.kb .k { display: block; }
           <div class="btn face A" data-btn="A">A<span class="k">Space</span></div>
         </div>
         <div class="stick" id="rs"><div class="knob"></div><span class="tag">hold = R3</span></div>
+        <div id="pedals">
+          <div class="pedal" id="brake"><div class="fill"></div><span>BRAKE</span></div>
+          <div class="pedal" id="gas"><div class="fill"></div><span>GAS</span></div>
+        </div>
       </div>
     </section>
   </div>
@@ -356,17 +440,23 @@ function sendAxis(name, v) {
 function connect() {
   dot.className = '';
   try {
-    ws = new WebSocket('ws://' + location.hostname + ':8765');
+    ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
   } catch (e) {
     setTimeout(connect, 2000);
     return;
   }
-  ws.onopen = () => { ready = true; dot.className = 'on'; send({ type: 'get_mode' }); };
+  ws.onopen = () => {
+    // the server ignores everything until the PIN is accepted
+    const p = savedPin();
+    if (p) ws.send(JSON.stringify({ type: 'auth', pin: p }));
+    else lock.classList.add('show');
+  };
   ws.onclose = () => { ready = false; dot.className = ''; setTimeout(connect, 2000); };
   ws.onerror = () => ws.close();
   ws.onmessage = e => {
     let m;
     try { m = JSON.parse(e.data); } catch (err) { return; }
+    if (m.type === 'auth') return onAuth(m);
     if (m.type !== 'caps') return;
     if (m.mode) applyMode(m.mode, false);
     const w = [];
@@ -393,11 +483,66 @@ function showStatus(text) {
   }
 }
 
+// ---- pin ----
+const lock = $('lock');
+let pin = '';
+
+// scanning the QR code puts the pin in the url, otherwise reuse the last good one
+function savedPin() {
+  const fromUrl = new URLSearchParams(location.search).get('pin');
+  if (fromUrl) return fromUrl;
+  try { return localStorage.getItem('pin') || ''; } catch (e) { return ''; }
+}
+
+function drawDots() {
+  document.querySelectorAll('#pin-dots i').forEach((d, i) => d.classList.toggle('on', i < pin.length));
+}
+
+function onAuth(m) {
+  if (m.ok) {
+    ready = true;
+    dot.className = 'on';
+    lock.classList.remove('show');
+    try { localStorage.setItem('pin', pendingPin || savedPin()); } catch (e) {}
+    history.replaceState(null, '', location.pathname);   // keep the pin out of the address bar
+    send({ type: 'get_mode' });
+    return;
+  }
+  pin = '';
+  drawDots();
+  lock.classList.add('show');
+  if (pendingPin || savedPin()) {
+    $('pin-msg').textContent = m.wait ? 'Too many tries, wait ' + m.wait + 's' : 'Wrong PIN';
+  }
+  pendingPin = '';
+}
+
+let pendingPin = '';
+function pressKey(k) {
+  if (k === 'del') pin = pin.slice(0, -1);
+  else if (pin.length < 6) pin += k;
+  $('pin-msg').textContent = '';
+  drawDots();
+  if (pin.length === 6) {
+    pendingPin = pin;
+    ws.send(JSON.stringify({ type: 'auth', pin: pin }));
+  }
+}
+
+['1','2','3','4','5','6','7','8','9','','0','del'].forEach(k => {
+  const key = document.createElement('div');
+  key.className = 'btn' + (k === '' ? ' empty' : '');
+  key.textContent = k === 'del' ? '\u232B' : k;
+  if (k !== '') key.addEventListener('pointerdown', e => { e.preventDefault(); pressKey(k); });
+  $('keys').appendChild(key);
+});
+
 // ---- mode switch ----
 function applyMode(m, push) {
   document.body.classList.toggle('kb', m === 'keyboard');
   $('m-gp').classList.toggle('on', m === 'gamepad');
   $('m-kb').classList.toggle('on', m === 'keyboard');
+  if (m === 'keyboard') setWheel(false);
   if (push) send({ type: 'set_mode', mode: m });
 }
 $('m-gp').addEventListener('pointerdown', () => applyMode('gamepad', true));
@@ -521,9 +666,11 @@ function setupStick(zone, axisX, axisY, clickBtn) {
   };
   zone.addEventListener('pointerup', end);
   zone.addEventListener('pointercancel', end);
+
+  return () => { clearTimeout(holdTimer); reset(); };
 }
-setupStick($('ls'), 'LX', 'LY', 'L3');
-setupStick($('rs'), 'RX', 'RY', 'R3');
+const resetLeft = setupStick($('ls'), 'LX', 'LY', 'L3');
+const resetRight = setupStick($('rs'), 'RX', 'RY', 'R3');
 
 // ---- gyro (steers the right stick x axis) ----
 let gyroOn = false;
@@ -533,7 +680,7 @@ function setGyro(on) {
   gyroOn = on;
   gyroBtn.classList.toggle('on', on);
   gyroBtn.textContent = on ? 'Gyro on' : 'Gyro off';
-  if (!on) sendAxis('RX', 0);
+  if (!on) { sendAxis('RX', 0); if (wheelOn) wheel.set(0); }
 }
 
 gyroBtn.addEventListener('pointerdown', e => {
@@ -552,7 +699,117 @@ window.addEventListener('deviceorientation', e => {
   if (!gyroOn) return;
   // in landscape the phone's tilt shows up on beta, not gamma
   const tilt = (screen.orientation && screen.orientation.angle === 270) ? -e.beta : e.beta;
-  sendAxis('RX', Math.max(-1, Math.min(1, (tilt || 0) / 45)));
+  const v = Math.max(-1, Math.min(1, (tilt || 0) / 45));
+  if (wheelOn) {
+    if (!wheel.busy()) wheel.set(v);   // tilt the phone like a steering wheel
+  } else {
+    sendAxis('RX', v);
+  }
+});
+
+// ---- driving: wheel + pedals ----
+const WHEEL_LOCK = 140;   // degrees from center to full lock
+let wheelOn = false;
+
+const wheel = (() => {
+  const el = $('wheel'), art = $('wheel-art');
+  let id = null, last = 0, rot = 0, cx = 0, cy = 0;
+
+  const angle = e => Math.atan2(e.clientY - cy, e.clientX - cx) * 180 / Math.PI;
+  function show() {
+    art.style.transform = 'rotate(' + rot + 'deg)';
+    sendAxis('LX', rot / WHEEL_LOCK);
+  }
+  function springBack() {
+    if (id !== null || rot === 0) return;
+    rot = Math.abs(rot) < 1 ? 0 : rot * 0.78;
+    show();
+    requestAnimationFrame(springBack);
+  }
+
+  el.addEventListener('pointerdown', e => {
+    if (id !== null) return;
+    e.preventDefault();
+    id = e.pointerId;
+    el.setPointerCapture(id);
+    const r = el.getBoundingClientRect();
+    cx = r.left + r.width / 2;
+    cy = r.top + r.height / 2;
+    last = angle(e);
+    el.classList.add('live');
+  });
+  el.addEventListener('pointermove', e => {
+    if (e.pointerId !== id) return;
+    const a = angle(e);
+    let d = a - last;
+    if (d > 180) d -= 360;
+    if (d < -180) d += 360;
+    last = a;
+    rot = Math.max(-WHEEL_LOCK, Math.min(WHEEL_LOCK, rot + d));
+    show();
+  });
+  const end = e => {
+    if (e.pointerId !== id) return;
+    id = null;
+    el.classList.remove('live');
+    springBack();
+  };
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+
+  return {
+    busy: () => id !== null,
+    set: v => { rot = v * WHEEL_LOCK; show(); },
+    release: () => { id = null; el.classList.remove('live'); rot = 0; show(); },
+  };
+})();
+
+function setupPedal(el, trigger) {
+  const fill = el.querySelector('.fill');
+  let id = null;
+  function set(v) {
+    fill.style.height = (v * 100) + '%';
+    send({ type: 'trigger', trigger: trigger, value: v });
+  }
+  // pressing lower on the pedal = pressing harder
+  function fromEvent(e) {
+    const r = el.getBoundingClientRect();
+    return Math.max(0, Math.min(1, (e.clientY - r.top) / r.height));
+  }
+  el.addEventListener('pointerdown', e => {
+    if (id !== null) return;
+    e.preventDefault();
+    id = e.pointerId;
+    el.setPointerCapture(id);
+    set(fromEvent(e));
+  });
+  el.addEventListener('pointermove', e => { if (e.pointerId === id) set(fromEvent(e)); });
+  const end = e => { if (e.pointerId === id) { id = null; set(0); } };
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+  return () => { id = null; set(0); };
+}
+const releaseBrake = setupPedal($('brake'), 'LT');
+const releaseGas = setupPedal($('gas'), 'RT');
+
+function setWheel(on) {
+  if (on && document.body.classList.contains('kb')) return;
+  if (on === wheelOn) return;
+  wheelOn = on;
+  document.body.classList.toggle('wheel', on);
+  // let go of whatever the hidden controls were holding
+  resetLeft(); resetRight(); wheel.release(); releaseBrake(); releaseGas();
+  send({ type: 'trigger', trigger: 'LT', value: 0 });
+  send({ type: 'trigger', trigger: 'RT', value: 0 });
+  showStatus(on ? 'driving' : 'on foot');
+  driveBtn.textContent = on ? 'Exit vehicle' : 'Drive';
+}
+
+// the drive button flips between the normal layout and the wheel
+const driveBtn = $('wheelmode');
+driveBtn.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  setWheel(!wheelOn);
 });
 
 // ---- fullscreen + landscape lock ----

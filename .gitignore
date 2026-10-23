@@ -1,0 +1,20 @@
+# generated on each machine by server.py, contains the private key
+certs/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# local settings
+.env
+*.pem
+*.key
+*.crt
+
+# editor / os
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
