@@ -282,7 +282,7 @@ def check_pin(ip, pin):
 async def on_client(request):
     global mode
 
-    # refuse pages from other sites trying to open the socket
+    
     origin = request.headers.get("Origin")
     if origin and urlparse(origin).netloc != request.host:
         raise web.HTTPForbidden()
@@ -428,7 +428,7 @@ async def main():
     print(f"  keyboard mode: {'ok' if PYNPUT_OK else 'unavailable (pip install pynput)'}")
     if qrcode:
         qr = qrcode.QRCode(border=1)
-        qr.add_data(f"{url}/?pin={PIN}")   # scanning the code skips typing the PIN
+        qr.add_data(f"{url}/?pin={PIN}")  
         qr.make(fit=True)
         qr.print_ascii(invert=True)
     print()
@@ -444,7 +444,6 @@ async def main():
 
 
 if __name__ == "__main__":
-    # python server.py --pin 123456 keeps the same PIN between runs
     if "--pin" in sys.argv:
         given = sys.argv[sys.argv.index("--pin") + 1:][:1]
         if given and given[0].isdigit() and len(given[0]) >= 4:

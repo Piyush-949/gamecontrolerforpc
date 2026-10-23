@@ -17,33 +17,29 @@ There is also a keyboard + mouse mode for games that don't support controllers.
 ## Setup
 
 1. Install ViGEmBus and restart if it asks.
-2. Run `pip install -r requirements.txt`.
+2. Run `install.bat` (or `pip install -r requirements.txt`).
 
 ## Running it
 
 1. Double click `start.bat`.
 2. Scan the QR code with your phone. Or open the address it prints (it starts with `https://`) and type the 6 digit PIN shown in the same window. If the page doesn't load, allow Python through the Windows firewall.
-3. The first time, the phone browser warns that the connection isn't private. That's expected, see the Encryption section below. Tap Advanced and continue.
+3. The first time the browser says the site isn't safe, see Encryption below. Tap Advanced and continue.
 4. Turn the phone sideways. The Fullscreen button hides the browser bars and locks landscape where the browser allows it.
 5. Start the game after the server is already running, so it sees the controller.
 
 ## Encryption
 
-Everything between the phone and the PC (the page, the PIN and every button press) goes over HTTPS / WSS, so nobody on the same wifi can read or copy it. The server makes its own certificate the first time it runs and keeps it in the `certs` folder. It makes a new one if your PC's IP address changes.
+The page, the PIN and all the button presses go over https, so people on the same wifi can't read them. The server makes its own certificate the first time you run it and saves it in `certs/` (it makes a new one if your PC's IP changes).
 
-Because that certificate isn't from a public authority, the phone shows a warning the first time. Check that the line `certificate starts with: ...` in the server window matches what the browser shows under certificate details if you want to be sure it's your PC. Accept it once and it's remembered.
+Since it's not from a real certificate authority, your phone will say the site isn't safe the first time. Just tap Advanced and continue. If you want to be sure it's your PC, the server prints the start of the certificate fingerprint when it starts.
 
-The `certs` folder holds the private key. Don't share it or zip it up with the project.
-
-A side effect: browsers only allow motion sensors and fullscreen orientation lock on secure pages, so gyro steering works properly now.
+Don't push or share the `certs` folder, the private key is in there.
 
 ## PIN
 
-Every time the server starts it makes a new random PIN. The phone has to send it before the server will listen to anything, so someone else on your wifi can't take over your PC. The QR code already has the PIN in it, so scanning skips the typing. After 5 wrong tries from the same device it is locked out for a minute.
+Each time the server starts it picks a random 6 digit PIN and the phone has to send it before anything works. The QR code has the PIN in the link so scanning skips typing it. 5 wrong tries from one device locks it out for a minute.
 
-If you'd rather keep the same PIN between runs, start the server with `python server.py --pin 123456` (4 digits or more). The phone remembers the last PIN that worked, so reconnecting after a wifi drop doesn't ask again.
-
-Pages from other websites can't open the connection either, the server checks where the request came from.
+Want the same PIN every time? Run `python server.py --pin 123456` (4+ digits). The phone remembers the last PIN that worked so a wifi drop doesn't ask again.
 
 ## Controls
 
