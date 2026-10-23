@@ -1,5 +1,5 @@
 @echo off
-title PhonePad
+title gamecontrolerforpc
 cd /d "%~dp0"
 python server.py
 pause
