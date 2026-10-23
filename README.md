@@ -17,7 +17,7 @@ There is also a keyboard + mouse mode for games that don't support controllers.
 ## Setup
 
 1. Install ViGEmBus and restart if it asks.
-2. Run `install.bat` (or `pip install -r requirements.txt`).
+2. Run `pip install -r requirements.txt`.
 
 ## Running it
 
