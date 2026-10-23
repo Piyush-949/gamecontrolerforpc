@@ -10,14 +10,14 @@ There is also a keyboard + mouse mode for games that don't support controllers.
 
 ## What you need
 
-- Windows 10 or 11 with Python 3.8+
-- The [ViGEmBus driver](https://github.com/nefarius/ViGEmBus/releases/latest) (only for gamepad mode)
-- Phone and PC on the same wifi
+* Windows 10 or 11 with Python 3.8+
+* The [ViGEmBus driver](https://github.com/nefarius/ViGEmBus/releases/latest) (only for gamepad mode)
+* Phone and PC on the same wifi
 
 ## Setup
 
 1. Install ViGEmBus and restart if it asks.
-2. Run `install.bat` (or `pip install -r requirements.txt`).
+2. Run `pip install -r requirements.txt`.
 
 ## Running it
 
@@ -30,35 +30,35 @@ There is also a keyboard + mouse mode for games that don't support controllers.
 
 Layout is the same as a normal pad: sticks at the outer edges, d-pad and face buttons toward the middle, triggers and bumpers along the top.
 
-| Control | What it does |
-|---|---|
-| Sticks | Move / camera. Hold one without moving for about half a second to click it (L3 / R3) |
-| LT / RT | Analog sliders, slide your finger sideways for partial press |
-| LB / RB, A B X Y, d-pad | Normal buttons |
-| Select / Start / center button | Back / Start / Guide |
-| Gyro | Tilt the phone to steer with the right stick's X axis |
+|Control|What it does|
+|-|-|
+|Sticks|Move / camera. Hold one without moving for about half a second to click it (L3 / R3)|
+|LT / RT|Analog sliders, slide your finger sideways for partial press|
+|LB / RB, A B X Y, d-pad|Normal buttons|
+|Select / Start / center button|Back / Start / Guide|
+|Gyro|Tilt the phone to steer with the right stick's X axis|
 
 In keyboard + mouse mode:
 
-| Control | Key |
-|---|---|
-| Left stick | W A S D |
-| Right stick | Mouse movement |
-| LT / RT | Right click / left click |
-| A B X Y | Space, E, R, F |
-| LB / RB | Q, Tab |
-| D-pad | 1, 2, 3, 4 |
-| Select / Start / center | M, Esc, P |
-| Stick click | Left Ctrl / Left Shift |
+|Control|Key|
+|-|-|
+|Left stick|W A S D|
+|Right stick|Mouse movement|
+|LT / RT|Right click / left click|
+|A B X Y|Space, E, R, F|
+|LB / RB|Q, Tab|
+|D-pad|1, 2, 3, 4|
+|Select / Start / center|M, Esc, P|
+|Stick click|Left Ctrl / Left Shift|
 
-The keys are listed at the top of `server.py` (`KEY_MAP`) if you want to change them. The labels show on the buttons while you're in this mode.
+The keys are listed at the top of `server.py` (`KEY\_MAP`) if you want to change them. The labels show on the buttons while you're in this mode.
 
 ## Troubleshooting
 
-- **No controller in game**: ViGEmBus isn't installed, or the game was started before the server.
-- **Page won't load**: check both devices are on the same network and try the IP by hand, `http://<pc ip>:8080`.
-- **Laggy**: sit closer to the router, 5 GHz helps.
-- **Gyro does nothing on iPhone**: Safari only asks for motion permission after a tap, so press the Gyro button once.
+* **No controller in game**: ViGEmBus isn't installed, or the game was started before the server.
+* **Page won't load**: check both devices are on the same network and try the IP by hand, `http://<pc ip>:8080`.
+* **Laggy**: sit closer to the router, 5 GHz helps.
+* **Gyro does nothing on iPhone**: Safari only asks for motion permission after a tap, so press the Gyro button once.
 
 ## Files
 
@@ -71,3 +71,4 @@ start.bat
 ```
 
 Ports used: 8080 (page) and 8765 (websocket).
+
