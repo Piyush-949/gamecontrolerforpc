@@ -1,16 +1,8 @@
 import asyncio
-import datetime
-import hashlib
-import hmac
-import ipaddress
 import json
 import os
-import secrets
 import socket
-import ssl
 import sys
-import time
-from urllib.parse import urlparse
 
 try:
     import vgamepad as vg
@@ -28,11 +20,8 @@ except ImportError:
     PYNPUT_OK = False
 
 try:
-    from aiohttp import web, WSMsgType
-    from cryptography import x509
-    from cryptography.hazmat.primitives import hashes, serialization
-    from cryptography.hazmat.primitives.asymmetric import ec
-    from cryptography.x509.oid import NameOID
+    import websockets
+    from aiohttp import web
 except ImportError:
     print("Missing packages. Run: pip install -r requirements.txt")
     sys.exit(1)
@@ -43,25 +32,16 @@ except ImportError:
     qrcode = None
 
 
-PORT = 8080   # page and websocket both live here, over https
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-STATIC_DIR = os.path.join(BASE_DIR, "static")
-CERT_DIR = os.path.join(BASE_DIR, "certs")
+HTTP_PORT = 8080
+WS_PORT = 8765
+STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 
-DEADZONE = 0.12     # keyboard mode only, the page already applies its own
-MOUSE_SPEED = 18    # pixels per tick at full stick deflection
-
+DEADZONE = 0.12     
+MOUSE_SPEED = 18    
 mode = "gamepad"
 clients = set()
 
-# pairing: the phone has to send this PIN before the server listens to it
-PIN = "".join(secrets.choice("0123456789") for _ in range(6))
-MAX_TRIES = 5
-LOCKOUT_SECONDS = 60
-failed = {}   # ip -> [number of wrong tries, locked until (time)]
 
-
-# keyboard + mouse mode
 
 KEY_MAP = {
     "A": "space",
@@ -226,7 +206,6 @@ def handle_gamepad(msg):
     pad.update()
 
 
-# shared
 
 def release_everything():
     for k in list(held_keys):
@@ -259,66 +238,23 @@ def caps_message():
     })
 
 
-def check_pin(ip, pin):
-    """Returns (ok, seconds_locked)."""
-    tries, until = failed.get(ip, [0, 0])
-    now = time.time()
-    if until > now:
-        return False, int(until - now) + 1
-
-    if hmac.compare_digest(str(pin), PIN):
-        failed.pop(ip, None)
-        return True, 0
-
-    tries += 1
-    if tries >= MAX_TRIES:
-        failed[ip] = [0, now + LOCKOUT_SECONDS]
-        print(f"too many wrong PINs from {ip}, locked for {LOCKOUT_SECONDS}s")
-        return False, LOCKOUT_SECONDS
-    failed[ip] = [tries, 0]
-    return False, 0
-
-
-async def on_client(request):
+async def on_client(ws):
     global mode
-
-    
-    origin = request.headers.get("Origin")
-    if origin and urlparse(origin).netloc != request.host:
-        raise web.HTTPForbidden()
-
-    ws = web.WebSocketResponse(heartbeat=20, max_msg_size=4096)
-    await ws.prepare(request)
-    ip = request.remote
-    paired = False
+    clients.add(ws)
+    print(f"phone connected ({len(clients)} total)")
+    await ws.send(caps_message())
 
     try:
-        async for frame in ws:
-            if frame.type != WSMsgType.TEXT:
-                continue
+        async for raw in ws:
             try:
-                msg = json.loads(frame.data)
+                msg = json.loads(raw)
             except ValueError:
-                continue
-            if not isinstance(msg, dict):
                 continue
 
             kind = msg.get("type")
 
-            if not paired:
-                if kind != "auth":
-                    continue
-                ok, wait = check_pin(ip, msg.get("pin", ""))
-                await ws.send_str(json.dumps({"type": "auth", "ok": ok, "wait": wait}))
-                if ok:
-                    paired = True
-                    clients.add(ws)
-                    print(f"phone paired: {ip} ({len(clients)} total)")
-                    await ws.send_str(caps_message())
-                continue
-
             if kind == "get_mode":
-                await ws.send_str(caps_message())
+                await ws.send(caps_message())
             elif kind == "set_mode":
                 new_mode = msg.get("mode")
                 if new_mode in ("gamepad", "keyboard") and new_mode != mode:
@@ -326,20 +262,20 @@ async def on_client(request):
                     mode = new_mode
                     print(f"mode: {mode}")
                     for c in list(clients):
-                        await c.send_str(caps_message())
+                        await c.send(caps_message())
             elif mode == "gamepad":
                 handle_gamepad(msg)
             else:
                 if kind == "axis" and msg.get("axis") in axis:
                     axis[msg["axis"]] = float(msg.get("value", 0))
                 handle_keyboard(msg)
+    except websockets.exceptions.ConnectionClosed:
+        pass
     finally:
-        if paired:
-            clients.discard(ws)
-            if not clients:
-                release_everything()
-            print(f"phone disconnected: {ip} ({len(clients)} left)")
-    return ws
+        clients.discard(ws)
+        if not clients:
+            release_everything()
+        print(f"phone disconnected ({len(clients)} left)")
 
 
 # http + startup
@@ -359,98 +295,31 @@ def local_ip():
         s.close()
 
 
-def load_or_make_cert(ip):
-    """Self-signed certificate for this PC's address. Reused until the IP changes or it nears expiry."""
-    crt = os.path.join(CERT_DIR, "phonepad.crt")
-    key = os.path.join(CERT_DIR, "phonepad.key")
-
-    if os.path.exists(crt) and os.path.exists(key):
-        with open(crt, "rb") as f:
-            old = x509.load_pem_x509_certificate(f.read())
-        san = old.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
-        ips = [str(i) for i in san.get_values_for_type(x509.IPAddress)]
-        expires = old.not_valid_after_utc
-        soon = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=30)
-        if ip in ips and expires > soon:
-            return crt, key
-
-    os.makedirs(CERT_DIR, exist_ok=True)
-    private = ec.generate_private_key(ec.SECP256R1())
-    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "PhonePad")])
-    now = datetime.datetime.now(datetime.timezone.utc)
-    cert = (
-        x509.CertificateBuilder()
-        .subject_name(name)
-        .issuer_name(name)
-        .public_key(private.public_key())
-        .serial_number(x509.random_serial_number())
-        .not_valid_before(now - datetime.timedelta(days=1))
-        .not_valid_after(now + datetime.timedelta(days=365))
-        .add_extension(x509.SubjectAlternativeName([
-            x509.IPAddress(ipaddress.ip_address(ip)),
-            x509.IPAddress(ipaddress.ip_address("127.0.0.1")),
-            x509.DNSName("localhost"),
-        ]), critical=False)
-        .sign(private, hashes.SHA256())
-    )
-    with open(key, "wb") as f:
-        f.write(private.private_bytes(
-            serialization.Encoding.PEM,
-            serialization.PrivateFormat.PKCS8,
-            serialization.NoEncryption(),
-        ))
-    with open(crt, "wb") as f:
-        f.write(cert.public_bytes(serialization.Encoding.PEM))
-    return crt, key
-
-
-def fingerprint(crt_path):
-    with open(crt_path, "rb") as f:
-        cert = x509.load_pem_x509_certificate(f.read())
-    digest = hashlib.sha256(cert.public_bytes(serialization.Encoding.DER)).hexdigest()
-    return ":".join(digest[i:i + 2] for i in range(0, 16, 2)).upper()
-
-
 async def main():
-    ip = local_ip()
-    url = f"https://{ip}:{PORT}"
-
-    crt, key = load_or_make_cert(ip)
-    ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-    ssl_ctx.minimum_version = ssl.TLSVersion.TLSv1_2
-    ssl_ctx.load_cert_chain(crt, key)
+    url = f"http://{local_ip()}:{HTTP_PORT}"
 
     print("PhonePad")
     print(f"  open on your phone: {url}")
-    print(f"  PIN: {PIN}")
-    print(f"  certificate starts with: {fingerprint(crt)}")
     print(f"  gamepad mode:  {'ok' if VGAMEPAD_OK else 'unavailable (ViGEmBus not installed)'}")
     print(f"  keyboard mode: {'ok' if PYNPUT_OK else 'unavailable (pip install pynput)'}")
     if qrcode:
         qr = qrcode.QRCode(border=1)
-        qr.add_data(f"{url}/?pin={PIN}")  
+        qr.add_data(url)
         qr.make(fit=True)
         qr.print_ascii(invert=True)
     print()
 
     app = web.Application()
     app.router.add_get("/", index)
-    app.router.add_get("/ws", on_client)
     runner = web.AppRunner(app)
     await runner.setup()
-    await web.TCPSite(runner, "0.0.0.0", PORT, ssl_context=ssl_ctx).start()
+    await web.TCPSite(runner, "0.0.0.0", HTTP_PORT).start()
 
-    await keyboard_tick()
+    async with websockets.serve(on_client, "0.0.0.0", WS_PORT):
+        await keyboard_tick()
 
 
 if __name__ == "__main__":
-    if "--pin" in sys.argv:
-        given = sys.argv[sys.argv.index("--pin") + 1:][:1]
-        if given and given[0].isdigit() and len(given[0]) >= 4:
-            PIN = given[0]
-        else:
-            print("--pin needs at least 4 digits")
-            sys.exit(1)
     try:
         asyncio.run(main())
     except KeyboardInterrupt:

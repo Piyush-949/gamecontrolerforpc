@@ -1,1183 +1,576 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport"
-    content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#0e1014">
-  <title>PhonePad</title>
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    :root {
-      --bg: #0e1014;
-      --panel: #1a1d24;
-      --panel-hi: #2a2e38;
-      --line: #2f3440;
-      --text: #e8eaee;
-      --muted: #7c8392;
-      --accent: #3aa0ff;
-      --kb: #f0953a;
-      --ok: #3fb950;
-      --bad: #e5484d;
-
-
-      --s: min(calc(100dvh - 118px), calc((50vw - 70px) / 1.72));
-      --pad: calc(var(--s) * 0.72);
-    }
-
-    html,
-    body {
-      width: 100%;
-      height: 100%;
-      background: var(--bg);
-      color: var(--text);
-      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-      overflow: hidden;
-      touch-action: none;
-      user-select: none;
-      -webkit-user-select: none;
-      -webkit-touch-callout: none;
-    }
-
-    body.kb {
-      --accent: var(--kb);
-    }
-
-    #app {
-      display: flex;
-      flex-direction: column;
-      height: 100dvh;
-      padding: 6px max(10px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
-      gap: 6px;
-    }
-
-
-    #bar {
-      height: 28px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-shrink: 0;
-    }
-
-    #name {
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 1.5px;
-      color: var(--muted);
-    }
-
-    #modes {
-      display: flex;
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 2px;
-    }
-
-    .mode {
-      padding: 3px 12px;
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--muted);
-      border-radius: 12px;
-    }
-
-    .mode.on {
-      background: var(--accent);
-      color: #0b0d11;
-    }
-
-    #status {
-      flex: 1;
-      text-align: right;
-      font-size: 11px;
-      color: var(--muted);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    #status.warn {
-      color: #f0777b;
-    }
-
-    #status.echo {
-      color: var(--text);
-    }
-
-    #dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--bad);
-      flex-shrink: 0;
-    }
-
-    #dot.on {
-      background: var(--ok);
-    }
-
-    #fs {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--muted);
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 3px 10px;
-    }
-
-
-    #main {
-      flex: 1;
-      min-height: 0;
-      display: grid;
-      grid-template-columns: 1fr 96px 1fr;
-      gap: 8px;
-    }
-
-    .side {
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      min-width: 0;
-    }
-
-    .top {
-      display: flex;
-      gap: 6px;
-      height: 44px;
-    }
-
-    .low {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-    }
-
-
-    .trig {
-      flex: 1.5;
-      position: relative;
-      overflow: hidden;
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      padding: 0 12px;
-      font-size: 12px;
-      font-weight: 700;
-    }
-
-    .trig .fill {
-      position: absolute;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      width: 0;
-      background: var(--accent);
-      opacity: .35;
-      pointer-events: none;
-    }
-
-    .trig b,
-    .trig i {
-      position: relative;
-    }
-
-    .trig i {
-      margin-left: auto;
-      font-style: normal;
-      font-weight: 400;
-      font-size: 10px;
-      color: var(--muted);
-    }
-
-    .btn {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      color: var(--text);
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-      position: relative;
-    }
-
-    .btn.down {
-      background: var(--panel-hi);
-      border-color: var(--accent);
-    }
-
-    .shoulder {
-      flex: 1;
-      border-radius: 10px;
-      font-size: 12px;
-    }
-
-    .k {
-      display: none;
-      font-size: 9px;
-      font-weight: 500;
-      color: var(--kb);
-      line-height: 1;
-    }
-
-    body.kb .k {
-      display: block;
-    }
-
-    #dpad {
-      width: var(--pad);
-      height: var(--pad);
-      display: grid;
-      grid-template: repeat(3, 1fr) / repeat(3, 1fr);
-      flex-shrink: 0;
-    }
-
-    #dpad .btn {
-      font-size: calc(var(--pad) * 0.14);
-      font-weight: 400;
-      color: var(--muted);
-    }
-
-    #dpad .d-up {
-      grid-area: 1 / 2;
-      border-radius: 8px 8px 0 0;
-    }
-
-    #dpad .d-left {
-      grid-area: 2 / 1;
-      border-radius: 8px 0 0 8px;
-    }
-
-    #dpad .d-right {
-      grid-area: 2 / 3;
-      border-radius: 0 8px 8px 0;
-    }
-
-    #dpad .d-down {
-      grid-area: 3 / 2;
-      border-radius: 0 0 8px 8px;
-    }
-
-    #dpad .mid {
-      grid-area: 2 / 2;
-      background: var(--panel);
-      border-top: 1px solid var(--line);
-      border-bottom: 1px solid var(--line);
-    }
-
-    #face {
-      width: var(--pad);
-      height: var(--pad);
-      position: relative;
-      flex-shrink: 0;
-    }
-
-    .face {
-      position: absolute;
-      width: 36%;
-      height: 36%;
-      border-radius: 50%;
-      font-size: calc(var(--pad) * 0.17);
-      border-width: 2px;
-    }
-
-    .face.Y {
-      left: 32%;
-      top: 0;
-      color: #f2c744;
-      border-color: #8a7020;
-    }
-
-    .face.X {
-      left: 0;
-      top: 32%;
-      color: #4aa3ff;
-      border-color: #25588f;
-    }
-
-    .face.B {
-      right: 0;
-      top: 32%;
-      color: #f0605f;
-      border-color: #8f3433;
-    }
-
-    .face.A {
-      left: 32%;
-      bottom: 0;
-      color: #4cc16a;
-      border-color: #28703b;
-    }
-
-    .face.down {
-      background: var(--panel-hi);
-    }
-
-
-    .stick {
-      width: var(--s);
-      height: var(--s);
-      flex-shrink: 0;
-      position: relative;
-      border-radius: 50%;
-      background: var(--panel);
-      border: 2px solid var(--line);
-      touch-action: none;
-    }
-
-    .stick .knob {
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      width: 40%;
-      height: 40%;
-      border-radius: 50%;
-      background: #3a404d;
-      border: 2px solid #565e6f;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
-    }
-
-    .stick.live .knob {
-      border-color: var(--accent);
-      background: #444b5a;
-    }
-
-    .stick .tag {
-      position: absolute;
-      bottom: 8%;
-      left: 0;
-      right: 0;
-      text-align: center;
-      font-size: 9px;
-      color: var(--muted);
-      pointer-events: none;
-    }
-
-
-    #center {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 8px;
-      padding-bottom: 4px;
-    }
-
-    #guide {
-      width: 42px;
-      height: 42px;
-      border-radius: 50%;
-      font-size: 18px;
-      color: var(--accent);
-    }
-
-    #sel-start {
-      display: flex;
-      gap: 4px;
-    }
-
-    .small {
-      width: 46px;
-      height: 26px;
-      border-radius: 13px;
-      font-size: 9px;
-      color: var(--muted);
-    }
-
-    #gyro {
-      width: 96px;
-      height: 26px;
-      border-radius: 13px;
-      font-size: 10px;
-      color: var(--muted);
-    }
-
-    #gyro.on {
-      color: var(--accent);
-      border-color: var(--accent);
-    }
-
-
-    #wheel,
-    #pedals {
-      display: none;
-    }
-
-    body.wheel #ls,
-    body.wheel #rs,
-    body.wheel #dpad,
-    body.wheel .trig {
-      display: none;
-    }
-
-    body.wheel #wheel {
-      display: block;
-    }
-
-    body.wheel #pedals {
-      display: flex;
-    }
-
-    body.wheel .low {
-      justify-content: space-around;
-    }
-
-    #wheel {
-      width: var(--s);
-      height: var(--s);
-      flex-shrink: 0;
-      touch-action: none;
-    }
-
-    #wheel-art {
-      width: 100%;
-      height: 100%;
-    }
-
-    #wheel-art circle,
-    #wheel-art line,
-    #wheel-art path {
-      fill: none;
-      stroke: #565e6f;
-      stroke-linecap: round;
-    }
-
-    #wheel.live #wheel-art circle.rim {
-      stroke: var(--accent);
-    }
-
-    #wheel-art .top {
-      stroke: var(--accent);
-      stroke-width: 7;
-    }
-
-    #pedals {
-      height: var(--s);
-      gap: 8px;
-      flex-shrink: 0;
-    }
-
-    .pedal {
-      width: calc(var(--s) * 0.34);
-      position: relative;
-      overflow: hidden;
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      touch-action: none;
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
-      padding-bottom: 8px;
-      font-size: 10px;
-      font-weight: 700;
-      color: var(--muted);
-    }
-
-    .pedal .fill {
-      position: absolute;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      height: 0;
-      opacity: .4;
-    }
-
-    #brake .fill {
-      background: var(--bad);
-    }
-
-    #gas .fill {
-      background: var(--ok);
-    }
-
-    .pedal span {
-      position: relative;
-    }
-
-    #wheelmode {
-      width: 96px;
-      height: 32px;
-      border-radius: 16px;
-      font-size: 11px;
-      color: var(--accent);
-      border-color: var(--accent);
-    }
-
-    body.wheel #wheelmode {
-      background: var(--accent);
-      color: #0b0d11;
-    }
-
-    /* pin screen */
-    #lock {
-      display: none;
-      position: fixed;
-      inset: 0;
-      z-index: 5;
-      background: var(--bg);
-      align-items: center;
-      justify-content: center;
-      gap: 36px;
-    }
-
-    #lock.show {
-      display: flex;
-    }
-
-    #lock-info {
-      text-align: center;
-      width: 220px;
-    }
-
-    #lock-info h2 {
-      font-size: 16px;
-      font-weight: 600;
-      margin-bottom: 6px;
-    }
-
-    #lock-info p {
-      font-size: 12px;
-      color: var(--muted);
-      line-height: 1.4;
-    }
-
-    #pin-dots {
-      display: flex;
-      justify-content: center;
-      gap: 10px;
-      margin: 18px 0 12px;
-    }
-
-    #pin-dots i {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      border: 2px solid var(--line);
-    }
-
-    #pin-dots i.on {
-      background: var(--accent);
-      border-color: var(--accent);
-    }
-
-    #pin-msg {
-      height: 16px;
-      font-size: 12px;
-      color: #f0777b;
-    }
-
-    #keys {
-      display: grid;
-      grid-template-columns: repeat(3, 62px);
-      gap: 8px;
-    }
-
-    #keys .btn {
-      height: 44px;
-      border-radius: 10px;
-      font-size: 18px;
-      font-weight: 500;
-    }
-
-    #keys .btn.empty {
-      visibility: hidden;
-    }
-
-    /* portrait = ask to rotate */
-    #rotate {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: var(--bg);
-      z-index: 10;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-      gap: 14px;
-      color: var(--muted);
-      font-size: 14px;
-      text-align: center;
-      padding: 30px;
-    }
-
-    #rotate svg {
-      width: 56px;
-      height: 56px;
-      stroke: var(--muted);
-      fill: none;
-      stroke-width: 1.5;
-      animation: tilt 2.4s ease-in-out infinite;
-    }
-
-    @keyframes tilt {
-
-      0%,
-      30% {
-        transform: rotate(0);
-      }
-
-      60%,
-      100% {
-        transform: rotate(-90deg);
-      }
-    }
-
-    @media (orientation: portrait) {
-      #rotate {
-        display: flex;
-      }
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0e1014">
+<title>PhonePad</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+:root {
+  --bg: #0e1014;
+  --panel: #1a1d24;
+  --panel-hi: #2a2e38;
+  --line: #2f3440;
+  --text: #e8eaee;
+  --muted: #7c8392;
+  --accent: #3aa0ff;
+  --kb: #f0953a;
+  --ok: #3fb950;
+  --bad: #e5484d;
+
+  /* stick diameter: limited by screen height and by half the width */
+  --s: min(calc(100dvh - 118px), calc((50vw - 70px) / 1.72));
+  --pad: calc(var(--s) * 0.72);
+}
+
+html, body {
+  width: 100%; height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+body.kb { --accent: var(--kb); }
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  padding: 6px max(10px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+  gap: 6px;
+}
+
+/* top bar */
+#bar {
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+#name { font-size: 12px; font-weight: 700; letter-spacing: 1.5px; color: var(--muted); }
+#modes {
+  display: flex;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 2px;
+}
+.mode {
+  padding: 3px 12px;
+  font-size: 11px; font-weight: 600;
+  color: var(--muted);
+  border-radius: 12px;
+}
+.mode.on { background: var(--accent); color: #0b0d11; }
+#status {
+  flex: 1;
+  text-align: right;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#status.warn { color: #f0777b; }
+#status.echo { color: var(--text); }
+#dot { width: 8px; height: 8px; border-radius: 50%; background: var(--bad); flex-shrink: 0; }
+#dot.on { background: var(--ok); }
+#fs {
+  font-size: 11px; font-weight: 600;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 3px 10px;
+}
+
+/* main layout: left half | middle strip | right half */
+#main {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 96px 1fr;
+  gap: 8px;
+}
+.side {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+}
+.top { display: flex; gap: 6px; height: 44px; }
+.low {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+/* triggers and shoulder buttons */
+.trig {
+  flex: 1.5;
+  position: relative;
+  overflow: hidden;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  display: flex; align-items: center;
+  padding: 0 12px;
+  font-size: 12px; font-weight: 700;
+}
+.trig .fill {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 0;
+  background: var(--accent);
+  opacity: .35;
+  pointer-events: none;
+}
+.trig b, .trig i { position: relative; }
+.trig i { margin-left: auto; font-style: normal; font-weight: 400; font-size: 10px; color: var(--muted); }
+
+.btn {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column;
+  position: relative;
+}
+.btn.down { background: var(--panel-hi); border-color: var(--accent); }
+.shoulder { flex: 1; border-radius: 10px; font-size: 12px; }
+
+/* tiny keyboard-mode labels, only visible in KB+Mouse mode */
+.k {
+  display: none;
+  font-size: 9px; font-weight: 500;
+  color: var(--kb);
+  line-height: 1;
+}
+body.kb .k { display: block; }
+
+/* d-pad */
+#dpad {
+  width: var(--pad); height: var(--pad);
+  display: grid;
+  grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+  flex-shrink: 0;
+}
+#dpad .btn { font-size: calc(var(--pad) * 0.14); font-weight: 400; color: var(--muted); }
+#dpad .d-up    { grid-area: 1 / 2; border-radius: 8px 8px 0 0; }
+#dpad .d-left  { grid-area: 2 / 1; border-radius: 8px 0 0 8px; }
+#dpad .d-right { grid-area: 2 / 3; border-radius: 0 8px 8px 0; }
+#dpad .d-down  { grid-area: 3 / 2; border-radius: 0 0 8px 8px; }
+#dpad .mid   { grid-area: 2 / 2; background: var(--panel); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+
+/* face buttons */
+#face {
+  width: var(--pad); height: var(--pad);
+  position: relative;
+  flex-shrink: 0;
+}
+.face {
+  position: absolute;
+  width: 36%; height: 36%;
+  border-radius: 50%;
+  font-size: calc(var(--pad) * 0.17);
+  border-width: 2px;
+}
+.face.Y { left: 32%; top: 0;   color: #f2c744; border-color: #8a7020; }
+.face.X { left: 0;   top: 32%; color: #4aa3ff; border-color: #25588f; }
+.face.B { right: 0;  top: 32%; color: #f0605f; border-color: #8f3433; }
+.face.A { left: 32%; bottom: 0; color: #4cc16a; border-color: #28703b; }
+.face.down { background: var(--panel-hi); }
+
+/* sticks, always square so they stay round */
+.stick {
+  width: var(--s); height: var(--s);
+  flex-shrink: 0;
+  position: relative;
+  border-radius: 50%;
+  background: var(--panel);
+  border: 2px solid var(--line);
+  touch-action: none;
+}
+.stick .knob {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 40%; height: 40%;
+  border-radius: 50%;
+  background: #3a404d;
+  border: 2px solid #565e6f;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.stick.live .knob { border-color: var(--accent); background: #444b5a; }
+.stick .tag {
+  position: absolute; bottom: 8%; left: 0; right: 0;
+  text-align: center;
+  font-size: 9px; color: var(--muted);
+  pointer-events: none;
+}
+
+/* middle strip */
+#center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-bottom: 4px;
+}
+#guide { width: 42px; height: 42px; border-radius: 50%; font-size: 18px; color: var(--accent); }
+#sel-start { display: flex; gap: 4px; }
+.small { width: 46px; height: 26px; border-radius: 13px; font-size: 9px; color: var(--muted); }
+#gyro {
+  width: 96px; height: 26px; border-radius: 13px;
+  font-size: 10px; color: var(--muted);
+}
+#gyro.on { color: var(--accent); border-color: var(--accent); }
+
+/* portrait = ask to rotate */
+#rotate {
+  display: none;
+  position: fixed; inset: 0;
+  background: var(--bg);
+  z-index: 10;
+  align-items: center; justify-content: center;
+  flex-direction: column;
+  gap: 14px;
+  color: var(--muted);
+  font-size: 14px;
+  text-align: center;
+  padding: 30px;
+}
+#rotate svg { width: 56px; height: 56px; stroke: var(--muted); fill: none; stroke-width: 1.5; animation: tilt 2.4s ease-in-out infinite; }
+@keyframes tilt { 0%, 30% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
+@media (orientation: portrait) { #rotate { display: flex; } }
+</style>
 </head>
-
 <body>
 
-  <div id="rotate">
-    <svg viewBox="0 0 24 24">
-      <rect x="7" y="2" width="10" height="20" rx="2" />
-      <line x1="11" y1="19" x2="13" y2="19" />
-    </svg>
-    Turn your phone sideways to use PhonePad
-  </div>
+<div id="rotate">
+  <svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><line x1="11" y1="19" x2="13" y2="19"/></svg>
+  Turn your phone sideways to use PhonePad
+</div>
 
-  <div id="lock">
-    <div id="lock-info">
-      <h2>Enter PIN</h2>
-      <p>The 6 digit code is shown in the PhonePad window on your PC.</p>
-      <div id="pin-dots"><i></i><i></i><i></i><i></i><i></i><i></i></div>
-      <div id="pin-msg"></div>
+<div id="app">
+  <div id="bar">
+    <div id="name">PHONEPAD</div>
+    <div id="modes">
+      <div class="mode on" id="m-gp">Gamepad</div>
+      <div class="mode" id="m-kb">Keyboard + Mouse</div>
     </div>
-    <div id="keys"></div>
+    <div id="status">tap any button</div>
+    <div id="dot"></div>
+    <div id="fs">Fullscreen</div>
   </div>
 
-  <div id="app">
-    <div id="bar">
-      <div id="name">PHONEPAD</div>
-      <div id="modes">
-        <div class="mode on" id="m-gp">Gamepad</div>
-        <div class="mode" id="m-kb">Keyboard + Mouse</div>
+  <div id="main">
+    <!-- left -->
+    <section class="side">
+      <div class="top">
+        <div class="trig" id="lt"><div class="fill"></div><b>LT</b><span class="k">&nbsp;right click</span><i>0%</i></div>
+        <div class="btn shoulder" data-btn="LB">LB<span class="k">Q</span></div>
       </div>
-      <div id="status">tap any button</div>
-      <div id="dot"></div>
-      <div id="fs">Fullscreen</div>
-    </div>
+      <div class="low">
+        <div class="stick" id="ls"><div class="knob"></div><span class="tag">hold = L3</span></div>
+        <div id="dpad">
+          <div class="btn d-up"    data-btn="DPAD_UP">&#9650;<span class="k">1</span></div>
+          <div class="btn d-left"  data-btn="DPAD_LEFT">&#9664;<span class="k">3</span></div>
+          <div class="mid"></div>
+          <div class="btn d-right" data-btn="DPAD_RIGHT">&#9654;<span class="k">4</span></div>
+          <div class="btn d-down"  data-btn="DPAD_DOWN">&#9660;<span class="k">2</span></div>
+        </div>
+      </div>
+    </section>
 
-    <div id="main">
-      <!-- left -->
-      <section class="side">
-        <div class="top">
-          <div class="trig" id="lt">
-            <div class="fill"></div><b>LT</b><span class="k">&nbsp;right click</span><i>0%</i>
-          </div>
-          <div class="btn shoulder" data-btn="LB">LB<span class="k">Q</span></div>
-        </div>
-        <div class="low">
-          <div class="stick" id="ls">
-            <div class="knob"></div><span class="tag">hold = L3</span>
-          </div>
-          <div id="wheel">
-            <svg id="wheel-art" viewBox="0 0 100 100">
-              <circle class="rim" cx="50" cy="50" r="44" stroke-width="7" />
-              <circle cx="50" cy="50" r="9" stroke-width="3" />
-              <line x1="9" y1="50" x2="41" y2="50" stroke-width="5" />
-              <line x1="59" y1="50" x2="91" y2="50" stroke-width="5" />
-              <line x1="50" y1="59" x2="50" y2="91" stroke-width="5" />
-              <line class="top" x1="50" y1="6" x2="50" y2="17" />
-            </svg>
-          </div>
-          <div id="dpad">
-            <div class="btn d-up" data-btn="DPAD_UP">&#9650;<span class="k">1</span></div>
-            <div class="btn d-left" data-btn="DPAD_LEFT">&#9664;<span class="k">3</span></div>
-            <div class="mid"></div>
-            <div class="btn d-right" data-btn="DPAD_RIGHT">&#9654;<span class="k">4</span></div>
-            <div class="btn d-down" data-btn="DPAD_DOWN">&#9660;<span class="k">2</span></div>
-          </div>
-        </div>
-      </section>
+    <!-- middle -->
+    <section id="center">
+      <div class="btn" id="guide" data-btn="GUIDE">&#9678;<span class="k">P</span></div>
+      <div id="sel-start">
+        <div class="btn small" data-btn="BACK">SELECT<span class="k">M</span></div>
+        <div class="btn small" data-btn="START">START<span class="k">Esc</span></div>
+      </div>
+      <div class="btn" id="gyro">Gyro off</div>
+    </section>
 
-      <!-- middle -->
-      <section id="center">
-        <div class="btn" id="guide" data-btn="GUIDE">&#9678;<span class="k">P</span></div>
-        <div id="sel-start">
-          <div class="btn small" data-btn="BACK">SELECT<span class="k">M</span></div>
-          <div class="btn small" data-btn="START">START<span class="k">Esc</span></div>
+    <!-- right -->
+    <section class="side">
+      <div class="top">
+        <div class="btn shoulder" data-btn="RB">RB<span class="k">Tab</span></div>
+        <div class="trig" id="rt"><div class="fill"></div><b>RT</b><span class="k">&nbsp;left click</span><i>0%</i></div>
+      </div>
+      <div class="low">
+        <div id="face">
+          <div class="btn face Y" data-btn="Y">Y<span class="k">F</span></div>
+          <div class="btn face X" data-btn="X">X<span class="k">R</span></div>
+          <div class="btn face B" data-btn="B">B<span class="k">E</span></div>
+          <div class="btn face A" data-btn="A">A<span class="k">Space</span></div>
         </div>
-        <div class="btn" id="gyro">Gyro off</div>
-        <div class="btn" id="wheelmode">Drive</div>
-      </section>
-
-      <!-- right -->
-      <section class="side">
-        <div class="top">
-          <div class="btn shoulder" data-btn="RB">RB<span class="k">Tab</span></div>
-          <div class="trig" id="rt">
-            <div class="fill"></div><b>RT</b><span class="k">&nbsp;left click</span><i>0%</i>
-          </div>
-        </div>
-        <div class="low">
-          <div id="face">
-            <div class="btn face Y" data-btn="Y">Y<span class="k">F</span></div>
-            <div class="btn face X" data-btn="X">X<span class="k">R</span></div>
-            <div class="btn face B" data-btn="B">B<span class="k">E</span></div>
-            <div class="btn face A" data-btn="A">A<span class="k">Space</span></div>
-          </div>
-          <div class="stick" id="rs">
-            <div class="knob"></div><span class="tag">hold = R3</span>
-          </div>
-          <div id="pedals">
-            <div class="pedal" id="brake">
-              <div class="fill"></div><span>BRAKE</span>
-            </div>
-            <div class="pedal" id="gas">
-              <div class="fill"></div><span>GAS</span>
-            </div>
-          </div>
-        </div>
-      </section>
-    </div>
+        <div class="stick" id="rs"><div class="knob"></div><span class="tag">hold = R3</span></div>
+      </div>
+    </section>
   </div>
+</div>
 
-  <script>
-    'use strict';
+<script>
+'use strict';
 
-    const $ = id => document.getElementById(id);
+const $ = id => document.getElementById(id);
 
-    // ---- connection ----
-    let ws = null;
-    let ready = false;
-    const dot = $('dot');
-    const status = $('status');
-    let warning = '';
-    let echoTimer = null;
+// ---- connection ----
+let ws = null;
+let ready = false;
+const dot = $('dot');
+const status = $('status');
+let warning = '';
+let echoTimer = null;
 
-    function send(obj) {
-      if (!ready) return;
-      try { ws.send(JSON.stringify(obj)); } catch (e) { }
+function send(obj) {
+  if (!ready) return;
+  try { ws.send(JSON.stringify(obj)); } catch (e) {}
+}
+
+// axis values are batched to one message per frame
+const axes = {};
+let axisQueued = false;
+function sendAxis(name, v) {
+  axes[name] = v;
+  if (axisQueued) return;
+  axisQueued = true;
+  requestAnimationFrame(() => {
+    axisQueued = false;
+    for (const k in axes) send({ type: 'axis', axis: k, value: axes[k] });
+  });
+}
+
+function connect() {
+  dot.className = '';
+  try {
+    ws = new WebSocket('ws://' + location.hostname + ':8765');
+  } catch (e) {
+    setTimeout(connect, 2000);
+    return;
+  }
+  ws.onopen = () => { ready = true; dot.className = 'on'; send({ type: 'get_mode' }); };
+  ws.onclose = () => { ready = false; dot.className = ''; setTimeout(connect, 2000); };
+  ws.onerror = () => ws.close();
+  ws.onmessage = e => {
+    let m;
+    try { m = JSON.parse(e.data); } catch (err) { return; }
+    if (m.type !== 'caps') return;
+    if (m.mode) applyMode(m.mode, false);
+    const w = [];
+    if (m.gamepad === false) w.push('gamepad driver missing (install ViGEmBus)');
+    if (m.keyboard === false) w.push('pynput missing');
+    warning = w.join(', ');
+    showStatus();
+  };
+}
+connect();
+
+function showStatus(text) {
+  clearTimeout(echoTimer);
+  if (text) {
+    status.textContent = text;
+    status.className = 'echo';
+    echoTimer = setTimeout(showStatus, 700);
+  } else if (warning) {
+    status.textContent = warning;
+    status.className = 'warn';
+  } else {
+    status.textContent = 'tap any button';
+    status.className = '';
+  }
+}
+
+// ---- mode switch ----
+function applyMode(m, push) {
+  document.body.classList.toggle('kb', m === 'keyboard');
+  $('m-gp').classList.toggle('on', m === 'gamepad');
+  $('m-kb').classList.toggle('on', m === 'keyboard');
+  if (push) send({ type: 'set_mode', mode: m });
+}
+$('m-gp').addEventListener('pointerdown', () => applyMode('gamepad', true));
+$('m-kb').addEventListener('pointerdown', () => applyMode('keyboard', true));
+
+// ---- buttons ----
+document.querySelectorAll('[data-btn]').forEach(el => {
+  const name = el.dataset.btn;
+  const down = e => {
+    e.preventDefault();
+    el.setPointerCapture(e.pointerId);
+    el.classList.add('down');
+    send({ type: 'button', button: name, pressed: true });
+    showStatus(name);
+    if (navigator.vibrate) navigator.vibrate(8);
+  };
+  const up = () => {
+    if (!el.classList.contains('down')) return;
+    el.classList.remove('down');
+    send({ type: 'button', button: name, pressed: false });
+  };
+  el.addEventListener('pointerdown', down);
+  el.addEventListener('pointerup', up);
+  el.addEventListener('pointercancel', up);
+});
+
+// ---- triggers (horizontal sliders) ----
+function setupTrigger(el, name) {
+  const fill = el.querySelector('.fill');
+  const label = el.querySelector('i');
+  let id = null;
+
+  function set(v) {
+    fill.style.width = (v * 100) + '%';
+    label.textContent = Math.round(v * 100) + '%';
+    send({ type: 'trigger', trigger: name, value: v });
+  }
+  function fromEvent(e) {
+    const r = el.getBoundingClientRect();
+    return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+  }
+
+  el.addEventListener('pointerdown', e => {
+    if (id !== null) return;
+    e.preventDefault();
+    id = e.pointerId;
+    el.setPointerCapture(id);
+    set(fromEvent(e));
+  });
+  el.addEventListener('pointermove', e => {
+    if (e.pointerId === id) set(fromEvent(e));
+  });
+  const end = e => {
+    if (e.pointerId !== id) return;
+    id = null;
+    set(0);
+  };
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+}
+setupTrigger($('lt'), 'LT');
+setupTrigger($('rt'), 'RT');
+
+// ---- sticks ----
+const DEADZONE = 0.1;
+const HOLD_MS = 600;   // hold without moving to click the stick (L3 / R3)
+
+function setupStick(zone, axisX, axisY, clickBtn) {
+  const knob = zone.querySelector('.knob');
+  let id = null, holdTimer = null;
+  let cx = 0, cy = 0, throwPx = 1;
+
+  function place(nx, ny) {
+    const px = nx * throwPx, py = ny * throwPx;
+    knob.style.transform = 'translate(calc(-50% + ' + px + 'px), calc(-50% + ' + py + 'px))';
+  }
+  function reset() {
+    place(0, 0);
+    zone.classList.remove('live');
+    sendAxis(axisX, 0);
+    sendAxis(axisY, 0);
+    id = null;
+  }
+
+  zone.addEventListener('pointerdown', e => {
+    if (id !== null) return;
+    e.preventDefault();
+    id = e.pointerId;
+    zone.setPointerCapture(id);
+    const r = zone.getBoundingClientRect();
+    cx = r.left + r.width / 2;
+    cy = r.top + r.height / 2;
+    throwPx = r.width * 0.3;
+    zone.classList.add('live');
+    holdTimer = setTimeout(() => {
+      send({ type: 'button', button: clickBtn, pressed: true });
+      setTimeout(() => send({ type: 'button', button: clickBtn, pressed: false }), 100);
+      if (navigator.vibrate) navigator.vibrate(20);
+    }, HOLD_MS);
+  });
+
+  zone.addEventListener('pointermove', e => {
+    if (e.pointerId !== id) return;
+    let dx = e.clientX - cx, dy = e.clientY - cy;
+    const dist = Math.hypot(dx, dy);
+    if (dist > 6) clearTimeout(holdTimer);
+    const m = Math.min(dist, throwPx);
+    const ang = Math.atan2(dy, dx);
+    let nx = (m / throwPx) * Math.cos(ang);
+    let ny = (m / throwPx) * Math.sin(ang);
+    if (Math.hypot(nx, ny) < DEADZONE) { nx = 0; ny = 0; }
+    place(nx, ny);
+    sendAxis(axisX, nx);
+    sendAxis(axisY, -ny);   // screen y points down, stick y points up
+  });
+
+  const end = e => {
+    if (e.pointerId !== id) return;
+    clearTimeout(holdTimer);
+    reset();
+  };
+  zone.addEventListener('pointerup', end);
+  zone.addEventListener('pointercancel', end);
+}
+setupStick($('ls'), 'LX', 'LY', 'L3');
+setupStick($('rs'), 'RX', 'RY', 'R3');
+
+// ---- gyro (steers the right stick x axis) ----
+let gyroOn = false;
+const gyroBtn = $('gyro');
+
+function setGyro(on) {
+  gyroOn = on;
+  gyroBtn.classList.toggle('on', on);
+  gyroBtn.textContent = on ? 'Gyro on' : 'Gyro off';
+  if (!on) sendAxis('RX', 0);
+}
+
+gyroBtn.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  if (gyroOn) return setGyro(false);
+  // iOS asks for permission, other browsers just work
+  const D = window.DeviceOrientationEvent;
+  if (D && typeof D.requestPermission === 'function') {
+    D.requestPermission().then(r => setGyro(r === 'granted')).catch(() => setGyro(false));
+  } else {
+    setGyro(true);
+  }
+});
+
+window.addEventListener('deviceorientation', e => {
+  if (!gyroOn) return;
+  // in landscape the phone's tilt shows up on beta, not gamma
+  const tilt = (screen.orientation && screen.orientation.angle === 270) ? -e.beta : e.beta;
+  sendAxis('RX', Math.max(-1, Math.min(1, (tilt || 0) / 45)));
+});
+
+// ---- fullscreen + landscape lock ----
+$('fs').addEventListener('pointerdown', async () => {
+  const root = document.documentElement;
+  try {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+    } else {
+      await root.requestFullscreen();
+      if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape');
     }
+  } catch (e) {}
+});
 
-    // axis values are batched to one message per frame
-    const axes = {};
-    let axisQueued = false;
-    function sendAxis(name, v) {
-      axes[name] = v;
-      if (axisQueued) return;
-      axisQueued = true;
-      requestAnimationFrame(() => {
-        axisQueued = false;
-        for (const k in axes) send({ type: 'axis', axis: k, value: axes[k] });
-      });
-    }
-
-    function connect() {
-      dot.className = '';
-      try {
-        ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
-      } catch (e) {
-        setTimeout(connect, 2000);
-        return;
-      }
-      ws.onopen = () => {
-        // the server ignores everything until the PIN is accepted
-        const p = savedPin();
-        if (p) ws.send(JSON.stringify({ type: 'auth', pin: p }));
-        else lock.classList.add('show');
-      };
-      ws.onclose = () => { ready = false; dot.className = ''; setTimeout(connect, 2000); };
-      ws.onerror = () => ws.close();
-      ws.onmessage = e => {
-        let m;
-        try { m = JSON.parse(e.data); } catch (err) { return; }
-        if (m.type === 'auth') return onAuth(m);
-        if (m.type !== 'caps') return;
-        if (m.mode) applyMode(m.mode, false);
-        const w = [];
-        if (m.gamepad === false) w.push('gamepad driver missing (install ViGEmBus)');
-        if (m.keyboard === false) w.push('pynput missing');
-        warning = w.join(', ');
-        showStatus();
-      };
-    }
-    connect();
-
-    function showStatus(text) {
-      clearTimeout(echoTimer);
-      if (text) {
-        status.textContent = text;
-        status.className = 'echo';
-        echoTimer = setTimeout(showStatus, 700);
-      } else if (warning) {
-        status.textContent = warning;
-        status.className = 'warn';
-      } else {
-        status.textContent = 'tap any button';
-        status.className = '';
-      }
-    }
-
-    // ---- pin ----
-    const lock = $('lock');
-    let pin = '';
-
-    // scanning the QR code puts the pin in the url, otherwise reuse the last good one
-    function savedPin() {
-      const fromUrl = new URLSearchParams(location.search).get('pin');
-      if (fromUrl) return fromUrl;
-      try { return localStorage.getItem('pin') || ''; } catch (e) { return ''; }
-    }
-
-    function drawDots() {
-      document.querySelectorAll('#pin-dots i').forEach((d, i) => d.classList.toggle('on', i < pin.length));
-    }
-
-    function onAuth(m) {
-      if (m.ok) {
-        ready = true;
-        dot.className = 'on';
-        lock.classList.remove('show');
-        try { localStorage.setItem('pin', pendingPin || savedPin()); } catch (e) { }
-        history.replaceState(null, '', location.pathname);   // keep the pin out of the address bar
-        send({ type: 'get_mode' });
-        return;
-      }
-      pin = '';
-      drawDots();
-      lock.classList.add('show');
-      if (pendingPin || savedPin()) {
-        $('pin-msg').textContent = m.wait ? 'Too many tries, wait ' + m.wait + 's' : 'Wrong PIN';
-      }
-      pendingPin = '';
-    }
-
-    let pendingPin = '';
-    function pressKey(k) {
-      if (k === 'del') pin = pin.slice(0, -1);
-      else if (pin.length < 6) pin += k;
-      $('pin-msg').textContent = '';
-      drawDots();
-      if (pin.length === 6) {
-        pendingPin = pin;
-        ws.send(JSON.stringify({ type: 'auth', pin: pin }));
-      }
-    }
-
-    ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'].forEach(k => {
-      const key = document.createElement('div');
-      key.className = 'btn' + (k === '' ? ' empty' : '');
-      key.textContent = k === 'del' ? '\u232B' : k;
-      if (k !== '') key.addEventListener('pointerdown', e => { e.preventDefault(); pressKey(k); });
-      $('keys').appendChild(key);
-    });
-
-    // ---- mode switch ----
-    function applyMode(m, push) {
-      document.body.classList.toggle('kb', m === 'keyboard');
-      $('m-gp').classList.toggle('on', m === 'gamepad');
-      $('m-kb').classList.toggle('on', m === 'keyboard');
-      if (m === 'keyboard') setWheel(false);
-      if (push) send({ type: 'set_mode', mode: m });
-    }
-    $('m-gp').addEventListener('pointerdown', () => applyMode('gamepad', true));
-    $('m-kb').addEventListener('pointerdown', () => applyMode('keyboard', true));
-
-    // ---- buttons ----
-    document.querySelectorAll('[data-btn]').forEach(el => {
-      const name = el.dataset.btn;
-      const down = e => {
-        e.preventDefault();
-        el.setPointerCapture(e.pointerId);
-        el.classList.add('down');
-        send({ type: 'button', button: name, pressed: true });
-        showStatus(name);
-        if (navigator.vibrate) navigator.vibrate(8);
-      };
-      const up = () => {
-        if (!el.classList.contains('down')) return;
-        el.classList.remove('down');
-        send({ type: 'button', button: name, pressed: false });
-      };
-      el.addEventListener('pointerdown', down);
-      el.addEventListener('pointerup', up);
-      el.addEventListener('pointercancel', up);
-    });
-
-    // ---- triggers (horizontal sliders) ----
-    function setupTrigger(el, name) {
-      const fill = el.querySelector('.fill');
-      const label = el.querySelector('i');
-      let id = null;
-
-      function set(v) {
-        fill.style.width = (v * 100) + '%';
-        label.textContent = Math.round(v * 100) + '%';
-        send({ type: 'trigger', trigger: name, value: v });
-      }
-      function fromEvent(e) {
-        const r = el.getBoundingClientRect();
-        return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
-      }
-
-      el.addEventListener('pointerdown', e => {
-        if (id !== null) return;
-        e.preventDefault();
-        id = e.pointerId;
-        el.setPointerCapture(id);
-        set(fromEvent(e));
-      });
-      el.addEventListener('pointermove', e => {
-        if (e.pointerId === id) set(fromEvent(e));
-      });
-      const end = e => {
-        if (e.pointerId !== id) return;
-        id = null;
-        set(0);
-      };
-      el.addEventListener('pointerup', end);
-      el.addEventListener('pointercancel', end);
-    }
-    setupTrigger($('lt'), 'LT');
-    setupTrigger($('rt'), 'RT');
-
-    // ---- sticks ----
-    const DEADZONE = 0.1;
-    const HOLD_MS = 600;   // hold without moving to click the stick (L3 / R3)
-
-    function setupStick(zone, axisX, axisY, clickBtn) {
-      const knob = zone.querySelector('.knob');
-      let id = null, holdTimer = null;
-      let cx = 0, cy = 0, throwPx = 1;
-
-      function place(nx, ny) {
-        const px = nx * throwPx, py = ny * throwPx;
-        knob.style.transform = 'translate(calc(-50% + ' + px + 'px), calc(-50% + ' + py + 'px))';
-      }
-      function reset() {
-        place(0, 0);
-        zone.classList.remove('live');
-        sendAxis(axisX, 0);
-        sendAxis(axisY, 0);
-        id = null;
-      }
-
-      zone.addEventListener('pointerdown', e => {
-        if (id !== null) return;
-        e.preventDefault();
-        id = e.pointerId;
-        zone.setPointerCapture(id);
-        const r = zone.getBoundingClientRect();
-        cx = r.left + r.width / 2;
-        cy = r.top + r.height / 2;
-        throwPx = r.width * 0.3;
-        zone.classList.add('live');
-        holdTimer = setTimeout(() => {
-          send({ type: 'button', button: clickBtn, pressed: true });
-          setTimeout(() => send({ type: 'button', button: clickBtn, pressed: false }), 100);
-          if (navigator.vibrate) navigator.vibrate(20);
-        }, HOLD_MS);
-      });
-
-      zone.addEventListener('pointermove', e => {
-        if (e.pointerId !== id) return;
-        let dx = e.clientX - cx, dy = e.clientY - cy;
-        const dist = Math.hypot(dx, dy);
-        if (dist > 6) clearTimeout(holdTimer);
-        const m = Math.min(dist, throwPx);
-        const ang = Math.atan2(dy, dx);
-        let nx = (m / throwPx) * Math.cos(ang);
-        let ny = (m / throwPx) * Math.sin(ang);
-        if (Math.hypot(nx, ny) < DEADZONE) { nx = 0; ny = 0; }
-        place(nx, ny);
-        sendAxis(axisX, nx);
-        sendAxis(axisY, -ny);   // screen y points down, stick y points up
-      });
-
-      const end = e => {
-        if (e.pointerId !== id) return;
-        clearTimeout(holdTimer);
-        reset();
-      };
-      zone.addEventListener('pointerup', end);
-      zone.addEventListener('pointercancel', end);
-
-      return () => { clearTimeout(holdTimer); reset(); };
-    }
-    const resetLeft = setupStick($('ls'), 'LX', 'LY', 'L3');
-    const resetRight = setupStick($('rs'), 'RX', 'RY', 'R3');
-
-    // ---- gyro (steers the right stick x axis) ----
-    let gyroOn = false;
-    const gyroBtn = $('gyro');
-
-    function setGyro(on) {
-      gyroOn = on;
-      gyroBtn.classList.toggle('on', on);
-      gyroBtn.textContent = on ? 'Gyro on' : 'Gyro off';
-      if (!on) { sendAxis('RX', 0); if (wheelOn) wheel.set(0); }
-    }
-
-    gyroBtn.addEventListener('pointerdown', e => {
-      e.preventDefault();
-      if (gyroOn) return setGyro(false);
-      // iOS asks for permission, other browsers just work
-      const D = window.DeviceOrientationEvent;
-      if (D && typeof D.requestPermission === 'function') {
-        D.requestPermission().then(r => setGyro(r === 'granted')).catch(() => setGyro(false));
-      } else {
-        setGyro(true);
-      }
-    });
-
-    window.addEventListener('deviceorientation', e => {
-      if (!gyroOn) return;
-      // in landscape the phone's tilt shows up on beta, not gamma
-      const tilt = (screen.orientation && screen.orientation.angle === 270) ? -e.beta : e.beta;
-      const v = Math.max(-1, Math.min(1, (tilt || 0) / 45));
-      if (wheelOn) {
-        if (!wheel.busy()) wheel.set(v);   // tilt the phone like a steering wheel
-      } else {
-        sendAxis('RX', v);
-      }
-    });
-
-    // ---- driving: wheel + pedals ----
-    const WHEEL_LOCK = 140;   // degrees from center to full lock
-    let wheelOn = false;
-
-    const wheel = (() => {
-      const el = $('wheel'), art = $('wheel-art');
-      let id = null, last = 0, rot = 0, cx = 0, cy = 0;
-
-      const angle = e => Math.atan2(e.clientY - cy, e.clientX - cx) * 180 / Math.PI;
-      function show() {
-        art.style.transform = 'rotate(' + rot + 'deg)';
-        sendAxis('LX', rot / WHEEL_LOCK);
-      }
-      function springBack() {
-        if (id !== null || rot === 0) return;
-        rot = Math.abs(rot) < 1 ? 0 : rot * 0.78;
-        show();
-        requestAnimationFrame(springBack);
-      }
-
-      el.addEventListener('pointerdown', e => {
-        if (id !== null) return;
-        e.preventDefault();
-        id = e.pointerId;
-        el.setPointerCapture(id);
-        const r = el.getBoundingClientRect();
-        cx = r.left + r.width / 2;
-        cy = r.top + r.height / 2;
-        last = angle(e);
-        el.classList.add('live');
-      });
-      el.addEventListener('pointermove', e => {
-        if (e.pointerId !== id) return;
-        const a = angle(e);
-        let d = a - last;
-        if (d > 180) d -= 360;
-        if (d < -180) d += 360;
-        last = a;
-        rot = Math.max(-WHEEL_LOCK, Math.min(WHEEL_LOCK, rot + d));
-        show();
-      });
-      const end = e => {
-        if (e.pointerId !== id) return;
-        id = null;
-        el.classList.remove('live');
-        springBack();
-      };
-      el.addEventListener('pointerup', end);
-      el.addEventListener('pointercancel', end);
-
-      return {
-        busy: () => id !== null,
-        set: v => { rot = v * WHEEL_LOCK; show(); },
-        release: () => { id = null; el.classList.remove('live'); rot = 0; show(); },
-      };
-    })();
-
-    function setupPedal(el, trigger) {
-      const fill = el.querySelector('.fill');
-      let id = null;
-      function set(v) {
-        fill.style.height = (v * 100) + '%';
-        send({ type: 'trigger', trigger: trigger, value: v });
-      }
-      // pressing lower on the pedal = pressing harder
-      function fromEvent(e) {
-        const r = el.getBoundingClientRect();
-        return Math.max(0, Math.min(1, (e.clientY - r.top) / r.height));
-      }
-      el.addEventListener('pointerdown', e => {
-        if (id !== null) return;
-        e.preventDefault();
-        id = e.pointerId;
-        el.setPointerCapture(id);
-        set(fromEvent(e));
-      });
-      el.addEventListener('pointermove', e => { if (e.pointerId === id) set(fromEvent(e)); });
-      const end = e => { if (e.pointerId === id) { id = null; set(0); } };
-      el.addEventListener('pointerup', end);
-      el.addEventListener('pointercancel', end);
-      return () => { id = null; set(0); };
-    }
-    const releaseBrake = setupPedal($('brake'), 'LT');
-    const releaseGas = setupPedal($('gas'), 'RT');
-
-    function setWheel(on) {
-      if (on && document.body.classList.contains('kb')) return;
-      if (on === wheelOn) return;
-      wheelOn = on;
-      document.body.classList.toggle('wheel', on);
-      // let go of whatever the hidden controls were holding
-      resetLeft(); resetRight(); wheel.release(); releaseBrake(); releaseGas();
-      send({ type: 'trigger', trigger: 'LT', value: 0 });
-      send({ type: 'trigger', trigger: 'RT', value: 0 });
-      showStatus(on ? 'driving' : 'on foot');
-      driveBtn.textContent = on ? 'Exit vehicle' : 'Drive';
-    }
-
-    // the drive button flips between the normal layout and the wheel
-    const driveBtn = $('wheelmode');
-    driveBtn.addEventListener('pointerdown', e => {
-      e.preventDefault();
-      setWheel(!wheelOn);
-    });
-
-    // ---- fullscreen + landscape lock ----
-    $('fs').addEventListener('pointerdown', async () => {
-      const root = document.documentElement;
-      try {
-        if (document.fullscreenElement) {
-          await document.exitFullscreen();
-        } else {
-          await root.requestFullscreen();
-          if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape');
-        }
-      } catch (e) { }
-    });
-
-    // ---- misc ----
-    document.addEventListener('contextmenu', e => e.preventDefault());
-    document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
-  </script>
+// ---- misc ----
+document.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+</script>
 </body>
-
 </html>
